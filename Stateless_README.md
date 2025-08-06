@@ -45,3 +45,5 @@ Check the `README.md` for more details.
 3. The setup file currently installs everything needed to train and test DPVO. This is not required since we only need inference. So need to write a minimalistic implementation.
 4. Host model wieghts somewhere and call it from there.
 5. Currently, slam.terminate() is called only after the server receives the last frame (denoted by timestamp = -1). Check if we need to call this after every frame/every few frames.
+6. Store the outputs (pointcloud, etc.) on server side -- check where exactly to store them
+7. Testing (lots of it)
