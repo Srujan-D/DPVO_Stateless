@@ -1,0 +1,47 @@
+This is a stateless implementation of DPVO (and DPVO-SLAM) where multiple clients can call the server to get service. Currently, the client gives a path of the .MOV file. The model weights are stored locally right now (dpvo.pth).
+
+1. `dpvo_stateless.py` &rarr; the server  
+2. `dpvo_client.py` &rarr; client example
+
+**First install dependencies** (requires `requirements.txt` which is already in the repo):  
+To install dependencies, run the setup script:
+
+```bash
+chmod +x setup_dpvo.sh
+./setup_dpvo.sh
+```
+
+**Change directory and activate venv**
+```bash
+cd DPVO
+source .venv/bin/activate
+```
+
+**Run the server** in one terminal:
+
+```bash
+python dpvo_stateless.py
+```
+
+**Run the client** as follows:
+
+```bash
+python dpvo_client.py \
+    --imagedir=movies/IMG_0492.MOV \
+    --calib=calib/iphone.txt \
+    --stride=5 \
+    --plot \
+    --opts LOOP_CLOSURE True \
+    --name result_client_server
+```
+
+Check the `README.md` for more details.
+
+---
+
+**TODO:**
+1. Currently, the server returns the output to the client. Change this to store them somewhere for later access.
+2. Check for redundancy in storing the SLAM state in the server (extract/deserialize state).
+3. The setup file currently installs everything needed to train and test DPVO. This is not required since we only need inference. So need to write a minimalistic implementation.
+4. Host model wieghts somewhere and call it from there.
+5. Currently, slam.terminate() is called only after the server receives the last frame (denoted by timestamp = -1). Check if we need to call this after every frame/every few frames.

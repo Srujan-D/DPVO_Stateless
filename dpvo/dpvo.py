@@ -14,12 +14,13 @@ mp.set_start_method('spawn', True)
 
 
 autocast = torch.cuda.amp.autocast
-Id = SE3.Identity(1, device="cuda")
-
+# Id = SE3.Identity(1, device="cuda") # moved inside DPVO class as it gave CUDA not found error with Ray[serve]
 
 class DPVO:
 
     def __init__(self, cfg, network, ht=480, wd=640, viz=False):
+        self.Id = SE3.Identity(1, device="cuda")
+
         self.cfg = cfg
         self.load_weights(network)
         self.is_initialized = False
@@ -440,7 +441,7 @@ class DPVO:
         self.counter += 1        
         if self.n > 0 and not self.is_initialized:
             if self.motion_probe() < 2.0:
-                self.pg.delta[self.counter - 1] = (self.counter - 2, Id[0])
+                self.pg.delta[self.counter - 1] = (self.counter - 2, self.Id[0])
                 return
 
         self.n += 1
