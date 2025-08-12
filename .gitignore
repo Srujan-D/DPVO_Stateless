@@ -162,3 +162,5 @@ datasets/TartanAir
 TartanAirResults
 thirdparty/*
 movies/
+slam_results/
+trajectory_plots/

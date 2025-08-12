@@ -40,10 +40,10 @@ Check the `README.md` for more details.
 ---
 
 **TODO:**
-1. Currently, the server returns the output to the client. Change this to store them somewhere for later access.
-2. Check for redundancy in storing the SLAM state in the server (extract/deserialize state).
+1. Currently, the server returns the output to the client. Change this to store them somewhere for later access. [DONE]
+2. Check for redundancy in storing the SLAM state in the server (extract/deserialize state). [DONE]
 3. The setup file currently installs everything needed to train and test DPVO. This is not required since we only need inference. So need to write a minimalistic implementation.
-4. Host model wieghts somewhere and call it from there.
+4. Host model wieghts somewhere and call it from there, currently its taken from local.
 5. Currently, slam.terminate() is called only after the server receives the last frame (denoted by timestamp = -1). Check if we need to call this after every frame/every few frames.
-6. Store the outputs (pointcloud, etc.) on server side -- check where exactly to store them
+6. Store the outputs (pointcloud, etc.) on server side instead -- check where exactly to store them [DONE]
 7. Testing (lots of it)
