@@ -105,6 +105,7 @@ def load_image_frames(imagedir, calib, K, stride=1, skip=0):
 
         intrinsics = calib_array
         frames.append((t, image, intrinsics))
+    frames.append((-1, image, intrinsics))  # End marker
 
     print(f"Loaded {len(frames)} frames")
     return frames
@@ -168,39 +169,41 @@ async def test_dpvo_websocket(args, cfg):
                 if response_data["type"] == "slam_result":
                     if t < 0:
                         frame_count += 1
-                        poses = response_data["poses"]
-                        timestamps = response_data["timestamps"]
-                        is_initialized = response_data["is_initialized"]
-                        points = response_data.get("points", [])
-                        colors = response_data.get("colors", [])
+                        # poses = response_data["poses"]
+                        # timestamps = response_data["timestamps"]
+                        # is_initialized = response_data["is_initialized"]
+                        # points = response_data.get("points", [])
+                        # colors = response_data.get("colors", [])
                         metrics = response_data.get("metrics", None)
                         print(f"SLAM Completed:"
-                            f"Last Pose: {poses[-1] if poses else 'N/A'}, "
-                            f"Is Initialized: {is_initialized}, "
-                            f"Points: {len(points)}, "
-                            f"Colors: {len(colors)}, "
+                            # f"Last Pose: {poses[-1] if poses else 'N/A'}, "
+                            # f"Is Initialized: {is_initialized}, "
+                            # f"Points: {len(points)}, "
+                            # f"Colors: {len(colors)}, "
                             f"Metrics: {metrics if metrics else 'N/A'}")
                     else:
                         frame_count += 1
-                        pose = response_data["pose"]
-                        is_initialized = response_data["is_initialized"]
-                        points = response_data.get("points", [])
-                        colors = response_data.get("colors", [])
+                        # pose = response_data["pose"]
+                        # is_initialized = response_data["is_initialized"]
+                        # points = response_data.get("points", [])
+                        # colors = response_data.get("colors", [])
                         metrics = response_data.get("metrics", None)
-                        # print(
+                        print(
                         #     f"Frame {t} : Pose: {pose}, "
                         #     f"Is Initialized: {is_initialized}, "
                         #     f"Points: {len(points)}, "
                         #     f"Colors: {len(colors)}, "
-                        #     f"Metrics: {metrics if metrics else 'N/A'}"
-                        # )
+                            f"Metrics: {metrics if metrics else 'N/A'}"
+                        )
                 elif response_data["type"] == "error":
                     print(f"Error in frame {t}: {response_data['message']}")
                     break
 
             print(f"Processed {frame_count} frames.")
         except websockets.exceptions.ConnectionClosed:
-            print("WebSocket connection closed")
+            import traceback
+            print("WebSocket connection closed unexpectedly.")
+            traceback.print_exc()
         except websockets.exceptions.InvalidStatusCode as e:
             print(f"WebSocket connection failed with status: {e.status_code}")
             if e.status_code == 401:

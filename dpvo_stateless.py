@@ -121,9 +121,9 @@ class DPVOStatelessSLAM:
 
         slam.M = slam.cfg.PATCHES_PER_FRAME
         slam.N = slam.cfg.BUFFER_SIZE
-        slam.DIM = 384  # DPVO feature dimension from net.py
-        slam.RES = 4  # DPVO resolution from net.py
-        slam.P = 3  # DPVO patch size from net.py
+        slam.DIM = self.network.DIM  # DPVO feature dimension from net.py
+        slam.RES = self.network.RES  # DPVO resolution from net.py
+        slam.P = self.network.P  # DPVO patch size from net.py
 
         if slam.cfg.MIXED_PRECISION:
             slam.kwargs = kwargs = {"device": "cuda", "dtype": torch.half}
@@ -140,27 +140,6 @@ class DPVOStatelessSLAM:
         slam.ran_global_ba = state["ran_global_ba"].copy()
         slam.ht = state["ht"]
         slam.wd = state["wd"]
-
-        for attr in [
-            "poses_",
-            "patches_",
-            "intrinsics_",
-            "points_",
-            "colors_",
-            "index_",
-            "index_map_",
-            "net",
-            "ii",
-            "jj",
-            "kk",
-            "ii_inac",
-            "jj_inac",
-            "kk_inac",
-            "weight_inac",
-            "target_inac",
-        ]:
-            if hasattr(slam.pg, attr):
-                setattr(slam.pg, attr, getattr(slam.pg, attr).to(slam.device))
 
         # PatchGraph state
         slam.pg.tstamps_[: slam.n + 1] = state["pg_tstamps"]
@@ -310,14 +289,14 @@ class DPVOStatelessSLAM:
                         poses, timestamps, points, colors, intrinsics, slam.ht, slam.wd
                     )
                     return state, {
-                        "pose": poses[-1].tolist(),
-                        "points": points.tolist(),
-                        "colors": colors.tolist(),
-                        "intrinsics": intrinsics.tolist(),
-                        "is_initialized": slam.is_initialized,
-                        "frame_number": slam.n,
-                        "poses": poses.tolist(),
-                        "timestamps": timestamps.tolist(),
+                        # "pose": poses[-1].tolist(),
+                        # "points": points.tolist(),
+                        # "colors": colors.tolist(),
+                        # "intrinsics": intrinsics.tolist(),
+                        # "is_initialized": slam.is_initialized,
+                        # "frame_number": slam.n,
+                        # "poses": poses.tolist(),
+                        # "timestamps": timestamps.tolist(),
                         "metrics": {
                             "frame_time_sec": frame_time,
                             "avg_fps": (
@@ -371,13 +350,13 @@ class DPVOStatelessSLAM:
             self._total_compute_time += frame_time
 
             return new_state, {
-                "pose": pose.tolist(),
-                "timestamps": timestamps,
-                "points": points,
-                "colors": colors,
-                "intrinsics": intrinsics_tensor.cpu().numpy().tolist(),
-                "is_initialized": is_initialized,
-                "frame_number": slam.n,
+                # "pose": pose.tolist(),
+                # "timestamps": timestamps,
+                # "points": points,
+                # "colors": colors,
+                # "intrinsics": intrinsics_tensor.cpu().numpy().tolist(),
+                # "is_initialized": is_initialized,
+                # "frame_number": slam.n,
                 "metrics": {
                     "frame_time_sec": frame_time,
                     "avg_fps": (
@@ -510,11 +489,11 @@ class DPVOSLAMService:
                         "type": "slam_result",
                         "session_id": session_id,
                         "frame_number": frame_count,
-                        "poses": result["poses"],
-                        "timestamps": result["timestamps"],
-                        "is_initialized": result["is_initialized"],
-                        "points": result.get("points", []),
-                        "colors": result.get("colors", []),
+                        # "poses": result["poses"],
+                        # "timestamps": result["timestamps"],
+                        # "is_initialized": result["is_initialized"],
+                        # "points": result.get("points", []),
+                        # "colors": result.get("colors", []),
                         "metrics": result.get("metrics", {}),
                     }
 
@@ -573,8 +552,8 @@ class DPVOSLAMService:
                         "type": "slam_result",
                         "session_id": session_id,
                         "frame_number": frame_count,
-                        "pose": result["pose"],
-                        "is_initialized": result["is_initialized"],
+                        # "pose": result["pose"],
+                        # "is_initialized": result["is_initialized"],
                         "metrics": {
                             **result["metrics"],
                             "session_fps": frame_count

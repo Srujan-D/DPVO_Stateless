@@ -35,6 +35,8 @@ python dpvo_client.py \
     --name result_client_server
 ```
 
+Currently, the server can store the point cloud, trajectory, camera poses, points, colors. Use colmap gui to visualize the points. The client does not receive any computed information apart from the metrics like fps.
+
 Check the `README.md` for more details.
 
 ---
@@ -47,3 +49,4 @@ Check the `README.md` for more details.
 5. Currently, slam.terminate() is called only after the server receives the last frame (denoted by timestamp = -1). Check if we need to call this after every frame/every few frames.
 6. Store the outputs (pointcloud, etc.) on server side instead -- check where exactly to store them [DONE]
 7. Testing (lots of it)
+8. If sending poses, timestamps, etc to client, then encode it before sending.
