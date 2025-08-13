@@ -130,18 +130,22 @@ async def test_dpvo_websocket(args, cfg):
     async with websockets.connect(cfg_uri) as websocket:
         await websocket.send(json.dumps(cfg))
         response = await websocket.recv()
-        print("Configuration response:", response)
+        response = json.loads(response)
+        try:
+            session_id = response.get("session_id")
+            print(f"Session started with ID: {session_id}")
+        except Exception as e:
+            print("Error extracting session ID:", e)
+            raise ValueError(
+                "No session ID returned in response. Check server configuration."
+            )
 
     # Start the SLAM process
     print(">>> Starting DPVO SLAM...")
 
     async with websockets.connect(slam_uri) as websocket:
         print("Connected to DPVO WebSocket server URI:", slam_uri)
-
-        # wait for session info
-        session_info = await websocket.recv()
-        session_data = json.loads(session_info)
-        print("Session started with ID:", session_data.get("session_id", "unknown"))
+        await websocket.send(json.dumps({"session_id": session_id}))
 
         try:
             for t, image, intrinsics in frames:
@@ -254,7 +258,7 @@ def main():
     cfg.SAVE_PLY = args.save_ply
     cfg.SAVE_COLMAP = args.save_colmap
     cfg.VIZ = args.viz
-    cfg.PLOT = args.plot
+    cfg.SAVE_PLOT = args.plot
 
     print("Running DPVO Stateless with config...")
     print(cfg)

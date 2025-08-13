@@ -26,8 +26,7 @@ from dpvo import lietorch
 class DPVOStatelessSLAM:
     """Lightweight functional API around DPVO suitable for micro-services."""
 
-    def __init__(self, cfg, device: str | None = None, model_path: str | None = None):
-        self.config = cfg
+    def __init__(self, device: str | None = None, model_path: str | None = None):
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.model_path = model_path or "dpvo.pth"
 
@@ -58,6 +57,8 @@ class DPVOStatelessSLAM:
 
     def _extract_state(self, slam: DPVO) -> Dict:
         state = {
+            # Config
+            "config": slam.cfg,
             # Core state
             "n": slam.n,
             "m": slam.m,
@@ -115,7 +116,7 @@ class DPVOStatelessSLAM:
 
     def _deserialize_state(self, state: Dict) -> DPVO:
         slam = DPVO.__new__(DPVO)
-        slam.cfg = self.config
+        slam.cfg = state["config"]
         slam.device = self.device
 
         slam.enable_timing = False
@@ -200,34 +201,47 @@ class DPVOStatelessSLAM:
         return slam
 
     def save_slam_files(
-        self, poses, timestamps, points, colors, intrinsics, H=480, W=640
+        self,
+        poses,
+        timestamps,
+        points,
+        colors,
+        intrinsics,
+        H=480,
+        W=640,
+        user_id="default",
+        map_name="default",
+        SAVE_PLY=True,
+        SAVE_COLMAP=True,
+        SAVE_TRAJECTORY=True,
+        SAVE_PLOT=True,
     ):
         """Save SLAM results to files"""
-        slam_dir = Path(f"slam_results/{self.config.user_id}/{self.config.map_name}")
+        slam_dir = Path(f"slam_results/{user_id}/{map_name}")
         slam_dir.mkdir(parents=True, exist_ok=True)
         trajectory = PoseTrajectory3D(
             positions_xyz=np.array(poses)[:, :3],
             orientations_quat_wxyz=np.array(poses)[:, [6, 3, 4, 5]],
             timestamps=np.array(timestamps),
         )
-        if self.config.SAVE_PLY:
+        if SAVE_PLY:
             save_ply(slam_dir / "trajectory.ply", points=points, colors=colors)
 
-        if self.config.SAVE_COLMAP:
+        if SAVE_COLMAP:
             save_output_for_COLMAP(
                 slam_dir / "colmap", trajectory, points, colors, *intrinsics, H, W
             )
 
-        if self.config.SAVE_TRAJECTORY:
+        if SAVE_TRAJECTORY:
             file_interface.write_tum_trajectory_file(
                 slam_dir / "trajectory.txt",
                 trajectory,
             )
-        if self.config.PLOT:
+        if SAVE_PLOT:
             plot_trajectory(
                 trajectory,
-                title=f"DPVO Trajectory Prediction for {self.config.map_name}",
-                filename=f"trajectory_plots/{self.config.map_name}.pdf",
+                title=f"DPVO Trajectory Prediction for {user_id}_{map_name}",
+                filename=f"trajectory_plots/{user_id}_{map_name}.pdf",
             )
 
     # ------------------------------------------------------------------
@@ -241,6 +255,7 @@ class DPVOStatelessSLAM:
         timestamp: float,
         *,
         state: Optional[Dict] = None,
+        config: Optional[dict] = None,
     ) -> Tuple[Dict, Dict]:
         """
         Run DPVO on a single frame.
@@ -278,7 +293,19 @@ class DPVOStatelessSLAM:
                     self._n_frames += 1
                     self._total_compute_time += frame_time
                     self.save_slam_files(
-                        poses, timestamps, points, colors, intrinsics, slam.ht, slam.wd
+                        poses,
+                        timestamps,
+                        points,
+                        colors,
+                        intrinsics,
+                        slam.ht,
+                        slam.wd,
+                        slam.cfg.user_id,
+                        slam.cfg.map_name,
+                        SAVE_PLY=slam.cfg.SAVE_PLY,
+                        SAVE_COLMAP=slam.cfg.SAVE_COLMAP,
+                        SAVE_TRAJECTORY=slam.cfg.SAVE_TRAJECTORY,
+                        SAVE_PLOT=slam.cfg.SAVE_PLOT,
                     )
                     return state, {
                         "pose": poses[-1].tolist(),
@@ -304,13 +331,16 @@ class DPVOStatelessSLAM:
             intrinsics_tensor = torch.from_numpy(intrinsics).to(self.device)
 
             if state is None:
-                slam = DPVO(
-                    self.config,
-                    self.network,
-                    ht=frame_tensor.shape[1],
-                    wd=frame_tensor.shape[2],
-                    viz=False,
-                )
+                if config is not None:
+                    slam = DPVO(
+                        config,
+                        self.network,
+                        ht=frame_tensor.shape[1],
+                        wd=frame_tensor.shape[2],
+                        viz=False,
+                    )
+                else:
+                    raise ValueError("Initial state is None, but no config provided")
                 slam(timestamp, frame_tensor, intrinsics_tensor)
                 new_state = self._extract_state(slam)
 
@@ -394,18 +424,9 @@ class DPVOSLAMService:
     def __init__(self):
         # Use absolute path to model in repo
         self.model_path = "dpvo.pth"
-        self.cfg = cfg  # TODO: does not seem elegant, check if there's a better way to handle config
-
-        ## Not Initializing here since config is not available yet
-        # self.slam = DPVOStatelessSLAM(
-        #     config_path=config_path,
-        #     model_path=model_path
-        # )
-
+        self.slam = DPVOStatelessSLAM(model_path=self.model_path)
         self.sessions: Dict[str, Dict] = {}  # session_id -> slam state
-
-    def initialize_slam(self):
-        self.slam = DPVOStatelessSLAM(cfg=self.cfg, model_path=self.model_path)
+        self.session_configs: Dict[str, cfg] = {}  # session_id -> config
 
     @app.websocket("/config")
     async def websocket_config(self, websocket: WebSocket):
@@ -417,15 +438,20 @@ class DPVOSLAMService:
         try:
             message = await websocket.receive_text()
             config_data = json.loads(message)
-            if hasattr(self.cfg, "merge_from_dict"):
-                self.cfg.merge_from_dict(config_data)
-            else:
-                for k, v in config_data.items():
-                    setattr(self.cfg, k, v)
-            print("Configuration updated:", self.cfg)
-            # Initialize SLAM with new config
-            self.initialize_slam()
-            await websocket.send_text("Configuration updated successfully")
+            session_id = f"cortex_ws_{uuid.uuid4().hex[:8]}"
+            # turn config_data into a cfg object
+            config = cfg.clone()
+            for k, v in config_data.items():
+                if hasattr(config, k):
+                    setattr(config, k, v)
+                else:
+                    print(f">>> Warning: Config key {k} not found in DPVO config")
+                    config[k] = v
+            self.session_configs[session_id] = config
+            print(f"Creating new DPVO SLAM session: {session_id}")
+            await websocket.send_json(
+                {"type": "session_info", "session_id": session_id, "status": "created"}
+            )
         except Exception as e:
             await websocket.send_text(f"Error updating config: {str(e)}")
 
@@ -436,28 +462,27 @@ class DPVOSLAMService:
 
         Protocol:
         - Connect to /slam (no session_id needed)
-        - First message: {"frame": "base64...", "intrinsics": [fx, fy, cx, cy], "timestamp": 0.0}
-        - Subsequent: {"frame": "base64...", "timestamp": 1.0}
+        - All messages except last frame: {"frame": "base64...", "intrinsics": [fx, fy, cx, cy], "timestamp": 0.0}
+        - Last frame: {"type": "end_stream", "intrinsics": [fx, fy, cx, cy]}
         - Response: {"pose": [tx, ty, tz, qx, qy, qz, qw]}
         """
 
+        # client will send initial configuration to server
         await websocket.accept()
+        message = await websocket.receive_json()
+        if "session_id" not in message:
+            raise ValueError("Session ID is required in the first message")
+        else:
+            session_id = message["session_id"]
+            print(f"Received SLAM request for session ID: {session_id}")
 
-        # Generate new session_id for every connection
-        session_id = f"cortex_ws_{uuid.uuid4().hex[:8]}"
-        print(f"Creating new DPVO SLAM session: {session_id}")
+        session_config = self.session_configs.get(message["session_id"])
 
         try:
-            # Send initial session info
-            await websocket.send_json(
-                {"type": "session_info", "session_id": session_id, "status": "ready"}
-            )
-
             frame_count = 0
             session_start_time = time.time()
 
             while True:
-                # Receive message from client
                 try:
                     message_text = await websocket.receive_text()
                     message = json.loads(message_text)
@@ -526,7 +551,11 @@ class DPVOSLAMService:
                     if session_id not in self.sessions:
                         # First frame
                         state, result = await asyncio.to_thread(
-                            self.slam.run, image, intrinsics, timestamp
+                            self.slam.run,
+                            image,
+                            intrinsics,
+                            timestamp,
+                            config=session_config,
                         )
                         self.sessions[session_id] = state
 
