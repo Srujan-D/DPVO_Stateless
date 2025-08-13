@@ -1,6 +1,7 @@
 import os
 from multiprocessing import Process, Queue
 from pathlib import Path
+import time
 
 import cv2
 import numpy as np
@@ -33,21 +34,28 @@ def run(cfg, network, imagedir, calib, stride=1, skip=0, viz=False, timeit=False
         reader = Process(target=video_stream, args=(queue, imagedir, calib, stride, skip))
 
     reader.start()
-
+    frame_count = 0
+    total_time = 0.0
     while 1:
         (t, image, intrinsics) = queue.get()
         if t < 0: break
 
         image = torch.from_numpy(image).permute(2,0,1).cuda()
         intrinsics = torch.from_numpy(intrinsics).cuda()
-
+        time1 = time.perf_counter()
         if slam is None:
             _, H, W = image.shape
             slam = DPVO(cfg, network, ht=H, wd=W, viz=viz)
 
         with Timer("SLAM", enabled=timeit):
             slam(t, image, intrinsics)
+        time2 = time.perf_counter()
+        total_time += time2 - time1
+        frame_count += 1
+        print("FPS: {:.2f}, Time: {:.2f}s, Frame: {}".format(
+            frame_count / total_time, time2 - time1, frame_count))
 
+        
     reader.join()
 
     points = slam.pg.points_.cpu().numpy()[:slam.m]

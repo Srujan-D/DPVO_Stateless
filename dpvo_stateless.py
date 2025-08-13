@@ -20,6 +20,7 @@ from dpvo.patchgraph import PatchGraph
 from dpvo.plot_utils import plot_trajectory, save_output_for_COLMAP, save_ply
 from evo.core.trajectory import PoseTrajectory3D
 from evo.tools import file_interface
+from dpvo import lietorch
 
 
 class DPVOStatelessSLAM:
@@ -69,24 +70,24 @@ class DPVOStatelessSLAM:
             "wd": slam.wd,
             # PatchGraph state (main SLAM state)
             "pg_tstamps": slam.pg.tstamps_[: slam.n + 1].copy(),
-            "pg_intrinsics": slam.pg.intrinsics_[: slam.n + 1].cpu().numpy(),
-            "pg_poses": slam.pg.poses_[: slam.n + 1].cpu().numpy(),
-            "pg_patches": slam.pg.patches_[: slam.n + 1].cpu().numpy(),
-            "pg_points": slam.pg.points_[: slam.n * slam.M].cpu().numpy(),
-            "pg_colors": slam.pg.colors_[: slam.n + 1].cpu().numpy(),
-            "pg_index": slam.pg.index_[: slam.n + 1].cpu().numpy(),
-            "pg_index_map": slam.pg.index_map_[: slam.n + 1].cpu().numpy(),
+            "pg_intrinsics": slam.pg.intrinsics_[: slam.n + 1].detach().clone(),
+            "pg_poses": slam.pg.poses_[: slam.n + 1].detach().clone(),
+            "pg_patches": slam.pg.patches_[: slam.n + 1].detach().clone(),
+            "pg_points": slam.pg.points_[: slam.n * slam.M].detach().clone(),
+            "pg_colors": slam.pg.colors_[: slam.n + 1].detach().clone(),
+            "pg_index": slam.pg.index_[: slam.n + 1].detach().clone(),
+            "pg_index_map": slam.pg.index_map_[: slam.n + 1].detach().clone(),
             # Factor graph state (active)
-            "pg_ii": slam.pg.ii.cpu().numpy(),
-            "pg_jj": slam.pg.jj.cpu().numpy(),
-            "pg_kk": slam.pg.kk.cpu().numpy(),
+            "pg_ii": slam.pg.ii.detach().clone(),
+            "pg_jj": slam.pg.jj.detach().clone(),
+            "pg_kk": slam.pg.kk.detach().clone(),
             "pg_net": slam.pg.net.cpu().numpy(),
             # Inactive factors
-            "pg_ii_inac": slam.pg.ii_inac.cpu().numpy(),
-            "pg_jj_inac": slam.pg.jj_inac.cpu().numpy(),
-            "pg_kk_inac": slam.pg.kk_inac.cpu().numpy(),
-            "pg_weight_inac": slam.pg.weight_inac.cpu().numpy(),
-            "pg_target_inac": slam.pg.target_inac.cpu().numpy(),
+            "pg_ii_inac": slam.pg.ii_inac.detach().clone(),
+            "pg_jj_inac": slam.pg.jj_inac.detach().clone(),
+            "pg_kk_inac": slam.pg.kk_inac.detach().clone(),
+            "pg_weight_inac": slam.pg.weight_inac.detach().clone(),
+            "pg_target_inac": slam.pg.target_inac.detach().clone(),
             # Memory buffers
             "imap": slam.imap_.cpu().numpy(),
             "gmap": slam.gmap_.cpu().numpy(),
@@ -143,40 +144,28 @@ class DPVOStatelessSLAM:
 
         # PatchGraph state
         slam.pg.tstamps_[: slam.n + 1] = state["pg_tstamps"]
-        slam.pg.intrinsics_[: slam.n + 1] = torch.from_numpy(state["pg_intrinsics"]).to(
-            slam.device
-        )
-        slam.pg.poses_[: slam.n + 1] = torch.from_numpy(state["pg_poses"]).to(
-            slam.device
-        )
-        slam.pg.patches_[: slam.n + 1] = torch.from_numpy(state["pg_patches"]).to(
-            slam.device
-        )
-        slam.pg.points_[: slam.n * slam.M] = torch.from_numpy(state["pg_points"]).to(
-            slam.device
-        )
-        slam.pg.colors_[: slam.n + 1] = torch.from_numpy(state["pg_colors"]).to(
-            slam.device
-        )
-        slam.pg.index_[: slam.n + 1] = torch.from_numpy(state["pg_index"]).to(
-            slam.device
-        )
-        slam.pg.index_map_[: slam.n + 1] = torch.from_numpy(state["pg_index_map"]).to(
-            slam.device
-        )
+        slam.pg.intrinsics_[: slam.n + 1] = state["pg_intrinsics"]
+        slam.pg.poses_[: slam.n + 1] = state["pg_poses"]
+        slam.pg.patches_[: slam.n + 1] = state["pg_patches"]
+        slam.pg.points_[: slam.n * slam.M] = state["pg_points"]
+        slam.pg.colors_[: slam.n + 1] = state["pg_colors"]
+        slam.pg.index_[: slam.n + 1] = state["pg_index"]
+        slam.pg.index_map_[: slam.n + 1] = state["pg_index_map"]
 
         # factor graph state
-        slam.pg.ii = torch.from_numpy(state["pg_ii"]).to(slam.device)
-        slam.pg.jj = torch.from_numpy(state["pg_jj"]).to(slam.device)
-        slam.pg.kk = torch.from_numpy(state["pg_kk"]).to(slam.device)
-        slam.pg.net = torch.from_numpy(state["pg_net"]).to(slam.device)
+        slam.pg.ii = state["pg_ii"]
+        slam.pg.jj = state["pg_jj"]
+        slam.pg.kk = state["pg_kk"]
+        slam.pg.net = torch.from_numpy(state["pg_net"]).to(
+            slam.device, non_blocking=True
+        )
 
         # inactive factors
-        slam.pg.ii_inac = torch.from_numpy(state["pg_ii_inac"]).to(slam.device)
-        slam.pg.jj_inac = torch.from_numpy(state["pg_jj_inac"]).to(slam.device)
-        slam.pg.kk_inac = torch.from_numpy(state["pg_kk_inac"]).to(slam.device)
-        slam.pg.weight_inac = torch.from_numpy(state["pg_weight_inac"]).to(slam.device)
-        slam.pg.target_inac = torch.from_numpy(state["pg_target_inac"]).to(slam.device)
+        slam.pg.ii_inac = state["pg_ii_inac"]
+        slam.pg.jj_inac = state["pg_jj_inac"]
+        slam.pg.kk_inac = state["pg_kk_inac"]
+        slam.pg.weight_inac = state["pg_weight_inac"]
+        slam.pg.target_inac = state["pg_target_inac"]
 
         # trajectory state
         slam.pg.delta = state["pg_delta"].copy()
@@ -276,7 +265,10 @@ class DPVOStatelessSLAM:
                 if state is None:
                     raise ValueError("Negative timestamp requires an initial state")
                 else:
+                    # time1 = time.perf_counter()
                     slam = self._deserialize_state(state)
+                    # time2 = time.perf_counter() - time1
+                    # print(f"Deserialized SLAM state in {time2:.4f} seconds")
                     points = slam.pg.points_.cpu().numpy()[: slam.m]
                     colors = slam.pg.colors_.view(-1, 3).cpu().numpy()[: slam.m]
 
@@ -289,14 +281,14 @@ class DPVOStatelessSLAM:
                         poses, timestamps, points, colors, intrinsics, slam.ht, slam.wd
                     )
                     return state, {
-                        # "pose": poses[-1].tolist(),
+                        "pose": poses[-1].tolist(),
                         # "points": points.tolist(),
                         # "colors": colors.tolist(),
-                        # "intrinsics": intrinsics.tolist(),
-                        # "is_initialized": slam.is_initialized,
+                        "timestamp": timestamps[-1],
+                        # # "intrinsics": intrinsics.tolist(),
                         # "frame_number": slam.n,
-                        # "poses": poses.tolist(),
-                        # "timestamps": timestamps.tolist(),
+                        # # "poses": poses.tolist(),
+                        # # "timestamps": timestamps.tolist(),
                         "metrics": {
                             "frame_time_sec": frame_time,
                             "avg_fps": (
@@ -322,40 +314,40 @@ class DPVOStatelessSLAM:
                 slam(timestamp, frame_tensor, intrinsics_tensor)
                 new_state = self._extract_state(slam)
 
-                # For first frame
-                pose = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0])
-                is_initialized = True
-
             else:
                 # Subsequent frames
                 if timestamp >= 0:
+                    # time1 = time.perf_counter()
                     slam = self._deserialize_state(state)
+                    # time2 = time.perf_counter() - time1
+                    # print(f"Deserialized SLAM state in {time2:.4f} seconds")
                     slam(timestamp, frame_tensor, intrinsics_tensor)
+                    # time1 = time.perf_counter()
                     new_state = self._extract_state(slam)
+                    # time2 = time.perf_counter() - time1
+                    # print("extract_state time:", time2)
 
-                    if slam.is_initialized and slam.n > 0:
-                        pose = slam.pg.poses_[slam.n].cpu().numpy()
-                    else:
-                        pose = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0])
+            if slam.n - slam.last_global_ba >= slam.cfg.GLOBAL_OPT_FREQ:
+                slam.append_factors(*slam.pg.edges_loop())
+                slam.last_global_ba = slam.n
 
-                    is_initialized = slam.is_initialized
+            pose = lietorch.SE3(slam.pg.poses_[slam.n - 1]).inv().data.cpu().numpy()
 
-            points = slam.pg.points_.cpu().numpy()[: slam.m]
-            colors = slam.pg.colors_.view(-1, 3).cpu().numpy()[: slam.m]
+            # points = slam.pg.points_.cpu().numpy()[: slam.m]
+            # colors = slam.pg.colors_.view(-1, 3).cpu().numpy()[: slam.m]
 
-            timestamps = slam.pg.tstamps_[: slam.n + 1]
+            timestamp = slam.tlist[slam.n - 1]
 
             frame_time = time.perf_counter() - start_t
             self._n_frames += 1
             self._total_compute_time += frame_time
 
             return new_state, {
-                # "pose": pose.tolist(),
-                # "timestamps": timestamps,
-                # "points": points,
-                # "colors": colors,
-                # "intrinsics": intrinsics_tensor.cpu().numpy().tolist(),
-                # "is_initialized": is_initialized,
+                "pose": pose.tolist(),
+                "timestamp": timestamp,
+                # "points": points.tolist(),
+                # "colors": colors.tolist(),
+                # # "intrinsics": intrinsics_tensor.cpu().numpy().tolist(),
                 # "frame_number": slam.n,
                 "metrics": {
                     "frame_time_sec": frame_time,
@@ -446,7 +438,7 @@ class DPVOSLAMService:
         - Connect to /slam (no session_id needed)
         - First message: {"frame": "base64...", "intrinsics": [fx, fy, cx, cy], "timestamp": 0.0}
         - Subsequent: {"frame": "base64...", "timestamp": 1.0}
-        - Response: {"pose": [tx, ty, tz, qx, qy, qz, qw], "is_initialized": true/false, "metrics": {...}}
+        - Response: {"pose": [tx, ty, tz, qx, qy, qz, qw]}
         """
 
         await websocket.accept()
@@ -488,12 +480,13 @@ class DPVOSLAMService:
                     response = {
                         "type": "slam_result",
                         "session_id": session_id,
-                        "frame_number": frame_count,
-                        # "poses": result["poses"],
-                        # "timestamps": result["timestamps"],
-                        # "is_initialized": result["is_initialized"],
+                        # "frame_number": frame_count,
+                        "pose": result["pose"],
+                        "timestamp": result["timestamp"],
                         # "points": result.get("points", []),
                         # "colors": result.get("colors", []),
+                        # # "poses": result["poses"],
+                        # # "timestamps": result["timestamps"],
                         "metrics": result.get("metrics", {}),
                     }
 
@@ -552,8 +545,11 @@ class DPVOSLAMService:
                         "type": "slam_result",
                         "session_id": session_id,
                         "frame_number": frame_count,
-                        # "pose": result["pose"],
-                        # "is_initialized": result["is_initialized"],
+                        "pose": result["pose"],
+                        "timestamp": result["timestamp"],
+                        # "points": result.get("points", []),
+                        # "colors": result.get("colors", []),
+                        # # "intrinsics": result["intrinsics"],
                         "metrics": {
                             **result["metrics"],
                             "session_fps": frame_count
@@ -562,7 +558,6 @@ class DPVOSLAMService:
                         },
                     }
 
-                    # Send response
                     await websocket.send_json(response)
 
                 except Exception as e:
@@ -571,6 +566,9 @@ class DPVOSLAMService:
                         "session_id": session_id,
                         "message": f"Processing error: {str(e)}",
                     }
+                    import traceback
+
+                    traceback.print_exc()
                     await websocket.send_json(error_response)
                     print(f"Session {session_id} processing error: {e}")
 

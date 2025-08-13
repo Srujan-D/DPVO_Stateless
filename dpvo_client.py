@@ -7,9 +7,6 @@ import numpy as np
 from pathlib import Path
 import websockets
 from dpvo.config import cfg
-from dpvo.plot_utils import plot_trajectory, save_output_for_COLMAP, save_ply
-from evo.core.trajectory import PoseTrajectory3D
-from evo.tools import file_interface
 
 
 def encode_frame(frame):
@@ -169,39 +166,47 @@ async def test_dpvo_websocket(args, cfg):
                 if response_data["type"] == "slam_result":
                     if t < 0:
                         frame_count += 1
-                        # poses = response_data["poses"]
-                        # timestamps = response_data["timestamps"]
-                        # is_initialized = response_data["is_initialized"]
-                        # points = response_data.get("points", [])
-                        # colors = response_data.get("colors", [])
-                        metrics = response_data.get("metrics", None)
-                        print(f"SLAM Completed:"
-                            # f"Last Pose: {poses[-1] if poses else 'N/A'}, "
-                            # f"Is Initialized: {is_initialized}, "
-                            # f"Points: {len(points)}, "
-                            # f"Colors: {len(colors)}, "
-                            f"Metrics: {metrics if metrics else 'N/A'}")
-                    else:
-                        frame_count += 1
-                        # pose = response_data["pose"]
-                        # is_initialized = response_data["is_initialized"]
+                        pose = response_data["pose"]
+                        timestamp = response_data["timestamp"]
                         # points = response_data.get("points", [])
                         # colors = response_data.get("colors", [])
                         metrics = response_data.get("metrics", None)
                         print(
-                        #     f"Frame {t} : Pose: {pose}, "
-                        #     f"Is Initialized: {is_initialized}, "
-                        #     f"Points: {len(points)}, "
-                        #     f"Colors: {len(colors)}, "
-                            f"Metrics: {metrics if metrics else 'N/A'}"
+                            f"SLAM Completed:"
+                            f"Last Pose: {pose if pose else 'N/A'}, \n"
+                            # f"Timestamp: {timestamp}, \n"
+                            f"Frame number: {response_data.get('frame_number', 'N/A')}, \n"
+                            # f"Points: {points}, \n"
+                            # f"Colors: {colors}, \n"
+                            f"Metrics: {metrics if metrics else 'N/A'} \n\n\n"
+                        )
+                    else:
+                        frame_count += 1
+                        pose = response_data["pose"]
+                        timestamp = response_data["timestamp"]
+                        # # For first frame --- IGNORE ---
+                        # pose = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]) --- IGNORE ---
+                        frame_number = response_data.get("frame_number", t)
+                        # points = response_data.get("points", [])
+                        # colors = response_data.get("colors", [])
+                        metrics = response_data.get("metrics", None)
+                        print(
+                            f"Frame {t} : Pose: {pose}, \n"
+                            # f"Timestamp: {timestamp}, \n"
+                            f"Frame number: {frame_number}\n"
+                            # f"Points: {points}, \n"
+                            # f"Colors: {colors}, \n"
+                            f"Metrics: {metrics if metrics else 'N/A'}\n\n\n"
                         )
                 elif response_data["type"] == "error":
                     print(f"Error in frame {t}: {response_data['message']}")
                     break
 
             print(f"Processed {frame_count} frames.")
+
         except websockets.exceptions.ConnectionClosed:
             import traceback
+
             print("WebSocket connection closed unexpectedly.")
             traceback.print_exc()
         except websockets.exceptions.InvalidStatusCode as e:
@@ -253,9 +258,6 @@ def main():
 
     print("Running DPVO Stateless with config...")
     print(cfg)
-
-    # print("Running with config...")
-    # print(cfg)
 
     asyncio.run(test_dpvo_websocket(args, cfg))
 

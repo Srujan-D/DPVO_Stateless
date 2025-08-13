@@ -165,3 +165,4 @@ movies/
 slam_results/
 trajectory_plots/
 datasets/
+viz_ply.py
