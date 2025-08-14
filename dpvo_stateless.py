@@ -53,8 +53,6 @@ class DPVOStatelessSLAM:
             self.network.to(self.device)
             self.network.eval()
 
-            self.network = torch.compile(self.network)
-
     def _extract_state(self, slam: DPVO) -> Dict:
         state = {
             # Config
@@ -613,6 +611,11 @@ class DPVOSLAMService:
         """Clean up session state"""
         if session_id in self.sessions:
             del self.sessions[session_id]
+        if session_id in self.session_configs:
+            del self.session_configs[session_id]
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
     @app.get("/health")
     async def health(self):
