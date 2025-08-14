@@ -1,16 +1,4 @@
-# PyTorch with CUDA 12.1 support
---index-url https://download.pytorch.org/whl/cu121
-torch==2.2.2+cu121
-torchvision==0.17.2+cu121
-
-# PyTorch Geometric ecosystem
---find-links https://data.pyg.org/whl/torch-2.2.2+cu121.html
-torch-scatter
-
-# Core dependencies
-tensorboard
 numba
-tqdm
 einops
 pypose
 kornia
@@ -21,3 +9,4 @@ opencv-python
 yacs
 fastapi
 ray[serve]
+setuptools
