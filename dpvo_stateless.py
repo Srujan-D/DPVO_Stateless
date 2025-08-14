@@ -241,7 +241,7 @@ class DPVOStatelessSLAM:
             plot_trajectory(
                 trajectory,
                 title=f"DPVO Trajectory Prediction for {user_id}_{map_name}",
-                filename=f"trajectory_plots/{user_id}_{map_name}.pdf",
+                filename=f"{slam_dir}/{user_id}_{map_name}.pdf",
             )
 
     # ------------------------------------------------------------------
