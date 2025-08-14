@@ -2,7 +2,6 @@ numba
 einops
 pypose
 kornia
-numpy==1.26.4
 plyfile
 evo
 opencv-python
